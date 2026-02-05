@@ -1,0 +1,55 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* Leaflet CSS overrides for better tablet experience */
+.leaflet-container {
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 0;
+}
+
+.leaflet-control-zoom {
+  border-radius: 8px;
+  border: 2px solid rgba(0,0,0,0.1);
+}
+
+.leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  font-size: 20px;
+}
+
+/* Tablet-first responsive optimizations */
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 767px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Touch-friendly buttons */
+button,
+a[role="button"],
+[role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Better contrast for outdoor use */
+.high-contrast {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
