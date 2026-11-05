@@ -25,12 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import {
-  getProjectById,
-  getItemsByProjectId,
-  WerfItem,
-  mockWerfItems,
-} from "../data/mockData";
+import type { WerfItem } from "../../domain/models.ts";
+import { isItemOverdue } from "../../domain/itemRules.ts";
+import { useProjectItems } from "../hooks/useWerfViews";
 import { NewItemModal } from "../components/NewItemModal";
 import { ProjectMap } from "../components/ProjectMap";
 import { format } from "date-fns";
@@ -38,10 +35,8 @@ import { nl } from "date-fns/locale";
 
 export function ProjectMapScreen() {
   const { projectId } = useParams<{ projectId: string }>();
-  const project = projectId ? getProjectById(projectId) : undefined;
-  const items = projectId ? getItemsByProjectId(projectId) : [];
 
-  const [selectedItem, setSelectedItem] = useState<WerfItem | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
   const [newItemLocation, setNewItemLocation] = useState<{ lat: number; lng: number } | null>(
     null
@@ -50,25 +45,8 @@ export function ProjectMapScreen() {
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
   const [isPlacementMode, setIsPlacementMode] = useState(false);
 
-  // Filter items by status
-  const filteredItems = items.filter((item) => {
-    if (statusFilter === "all") return true;
-    if (statusFilter === "overdue") {
-      return item.status !== "voltooid" && item.deadline < new Date();
-    }
-    return item.status === statusFilter;
-  });
-
-  // Sort items: overdue first, then by deadline
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    const aOverdue = a.status !== "voltooid" && a.deadline < new Date();
-    const bOverdue = b.status !== "voltooid" && b.deadline < new Date();
-
-    if (aOverdue && !bOverdue) return -1;
-    if (!aOverdue && bOverdue) return 1;
-
-    return a.deadline.getTime() - b.deadline.getTime();
-  });
+  const { project, items, sortedItems, changeStatus } = useProjectItems(projectId, statusFilter);
+  const selectedItem = items.find((item) => item.itemId === selectedItemId) ?? null;
 
   const handleMapClick = (lat: number, lng: number) => {
     if (isPlacementMode) {
@@ -79,16 +57,11 @@ export function ProjectMapScreen() {
   };
 
   const handleItemClick = (item: WerfItem) => {
-    setSelectedItem(item);
+    setSelectedItemId(item.itemId);
   };
 
   const handleStatusChange = (itemId: string, newStatus: WerfItem["status"]) => {
-    // In real app, update backend here
-    const item = mockWerfItems.find((i) => i.itemId === itemId);
-    if (item) {
-      item.status = newStatus;
-      setSelectedItem({ ...item });
-    }
+    changeStatus(itemId, newStatus);
   };
 
   if (!project) {
@@ -162,7 +135,7 @@ export function ProjectMapScreen() {
         <div className={`${viewMode === "map" ? "w-[70%]" : "w-0"} relative transition-all overflow-hidden`}>
           {viewMode === "map" && (
             <ProjectMap
-              items={filteredItems}
+              items={sortedItems}
               center={
                 items.length > 0
                   ? [
@@ -182,7 +155,7 @@ export function ProjectMapScreen() {
         <div className={`${viewMode === "map" ? "w-[30%]" : "w-full"} border-l border-gray-200 bg-gray-50 flex flex-col transition-all`}>
           <div className="p-4 bg-white border-b border-gray-200">
             <h2 className="text-lg font-semibold">
-              Items ({filteredItems.length})
+              Items ({sortedItems.length})
             </h2>
           </div>
 
@@ -195,7 +168,7 @@ export function ProjectMapScreen() {
                 </div>
               ) : (
                 sortedItems.map((item) => {
-                  const isOverdue = item.status !== "voltooid" && item.deadline < new Date();
+                  const isOverdue = isItemOverdue(item);
                   const isSelected = selectedItem?.itemId === item.itemId;
 
                   return (

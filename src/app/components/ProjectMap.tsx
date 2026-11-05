@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { WerfItem } from "../data/mockData";
+import type { WerfItem } from "../../domain/models.ts";
+import { isItemOverdue } from "../../domain/itemRules.ts";
 import { Button } from "./ui/button";
 import { Target } from "lucide-react";
 
@@ -15,7 +16,7 @@ L.Icon.Default.mergeOptions({
 
 // Custom marker icons based on priority and status
 function getMarkerIcon(item: WerfItem): L.DivIcon {
-  const isOverdue = item.status !== "voltooid" && item.deadline < new Date();
+  const isOverdue = isItemOverdue(item);
   const color = isOverdue
     ? "#dc2626"
     : item.prioriteit === 5
@@ -78,13 +79,18 @@ export function ProjectMap({ items, center, onItemClick, onMapClick, isPlacement
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const userMarkerRef = useRef<L.Marker | null>(null);
+  const mapClickRef = useRef(onMapClick);
+  const initialCenter = useRef(center);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+
+  useEffect(() => { mapClickRef.current = onMapClick; }, [onMapClick]);
 
   // Initialize map
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
-    const map = L.map(mapRef.current).setView(center, 15);
+    const map = L.map(mapRef.current).setView(initialCenter.current, 15);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -92,7 +98,7 @@ export function ProjectMap({ items, center, onItemClick, onMapClick, isPlacement
 
     // Handle map clicks
     map.on("click", (e) => {
-      onMapClick(e.latlng.lat, e.latlng.lng);
+      mapClickRef.current(e.latlng.lat, e.latlng.lng);
     });
 
     mapInstanceRef.current = map;
@@ -171,14 +177,11 @@ export function ProjectMap({ items, center, onItemClick, onMapClick, isPlacement
           });
 
           // Remove old user marker if exists
-          const existingUserMarker = (mapInstanceRef.current as any)._userLocationMarker;
-          if (existingUserMarker) {
-            existingUserMarker.remove();
-          }
+          userMarkerRef.current?.remove();
 
           // Add new user marker
           const userMarker = L.marker(pos, { icon: userIcon }).addTo(mapInstanceRef.current);
-          (mapInstanceRef.current as any)._userLocationMarker = userMarker;
+          userMarkerRef.current = userMarker;
         }
       },
       () => {

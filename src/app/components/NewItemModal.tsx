@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { X, Calendar as CalendarIcon, MapPin, Camera } from "lucide-react";
 import {
   Dialog,
@@ -22,10 +21,11 @@ import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Slider } from "./ui/slider";
 import { Badge } from "./ui/badge";
-import { HOOFDCATEGORIEEN, SUBCATEGORIEEN, WerfItem } from "../data/mockData";
+import { HOOFDCATEGORIEEN } from "../../domain/categories.ts";
+import type { WerfItem } from "../../domain/models.ts";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { toast } from "sonner";
+import { useNewItemForm } from "../hooks/useNewItemForm";
 
 interface NewItemModalProps {
   isOpen: boolean;
@@ -34,7 +34,6 @@ interface NewItemModalProps {
   initialLocation: { lat: number; lng: number } | null;
 }
 
-type Step = 1 | 2;
 
 export function NewItemModal({
   isOpen,
@@ -42,114 +41,38 @@ export function NewItemModal({
   projectId,
   initialLocation,
 }: NewItemModalProps) {
-  const [step, setStep] = useState<Step>(1);
-  const [currentDate] = useState(new Date());
-  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(
-    initialLocation
-  );
-
-  // Step 1 fields
-  const [hoofdcategorie, setHoofdcategorie] = useState<string>("");
-  const [subcategorie, setSubcategorie] = useState<string>("");
-
-  // Step 2 fields
-  const [status, setStatus] = useState<WerfItem["status"]>("uit te voeren");
-  const [adresLocatie, setAdresLocatie] = useState("");
-  const [titel, setTitel] = useState("");
-  const [contactpersoon, setContactpersoon] = useState("");
-  const [contactgegevens, setContactgegevens] = useState("");
-  const [opmerking, setOpmerking] = useState("");
-  const [deadline, setDeadline] = useState<Date | undefined>(undefined);
-  const [prioriteit, setPrioriteit] = useState<number>(3);
-
-  // Validation errors
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Get GPS location if not provided from map click
-  useEffect(() => {
-    if (isOpen && !gpsLocation && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setGpsLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        () => {
-          // Silently ignore - geolocation may be disabled in iframe/embedded contexts
-          // User can still create item by clicking on map or entering address manually
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-      );
-    }
-  }, [isOpen, gpsLocation]);
-
-  // Reset form when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setStep(1);
-      setHoofdcategorie("");
-      setSubcategorie("");
-      setStatus("uit te voeren");
-      setAdresLocatie("");
-      setTitel("");
-      setContactpersoon("");
-      setContactgegevens("");
-      setOpmerking("");
-      setDeadline(undefined);
-      setPrioriteit(3);
-      setErrors({});
-      setGpsLocation(initialLocation);
-    }
-  }, [isOpen, initialLocation]);
-
-  // Get available subcategories based on hoofdcategorie
-  const availableSubcategorieen = hoofdcategorie ? SUBCATEGORIEEN[hoofdcategorie] || [] : [];
-  const requiresSubcategorie = availableSubcategorieen.length > 0;
-
-  const handleStep1Next = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!hoofdcategorie) {
-      newErrors.hoofdcategorie = "Hoofdcategorie is verplicht";
-    }
-
-    if (requiresSubcategorie && !subcategorie) {
-      newErrors.subcategorie = "Subcategorie is verplicht";
-    }
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length === 0) {
-      setStep(2);
-    }
-  };
-
-  const handleStep2Save = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!titel.trim()) {
-      newErrors.titel = "Titel is verplicht";
-    }
-
-    if (!gpsLocation) {
-      newErrors.gps = "GPS locatie is vereist";
-    }
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length === 0) {
-      // In real app, save to backend here
-      toast.success("Item opgeslagen", {
-        description: `"${titel}" is succesvol toegevoegd`,
-      });
-      onClose();
-    }
-  };
-
-  const handleClose = () => {
-    onClose();
-  };
+  const {
+    step,
+    setStep,
+    currentDate,
+    gpsLocation,
+    hoofdcategorie,
+    setHoofdcategorie,
+    subcategorie,
+    setSubcategorie,
+    status,
+    setStatus,
+    adresLocatie,
+    setAdresLocatie,
+    titel,
+    setTitel,
+    contactpersoon,
+    setContactpersoon,
+    contactgegevens,
+    setContactgegevens,
+    opmerking,
+    setOpmerking,
+    deadline,
+    setDeadline,
+    prioriteit,
+    setPrioriteit,
+    errors,
+    availableSubcategorieen,
+    requiresSubcategorie,
+    handleStep1Next,
+    handleStep2Save,
+    handleClose
+  } = useNewItemForm({ isOpen, onClose, initialLocation });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -201,7 +124,7 @@ export function NewItemModal({
               <Label htmlFor="hoofdcategorie" className="text-base">
                 Hoofdcategorie *
               </Label>
-              <Select value={hoofdcategorie} onValueChange={setHoofdcategorie}>
+              <Select value={hoofdcategorie} onValueChange={(value) => { setHoofdcategorie(value); setSubcategorie(""); }}>
                 <SelectTrigger
                   id="hoofdcategorie"
                   className={`h-12 ${errors.hoofdcategorie ? "border-red-500" : ""}`}

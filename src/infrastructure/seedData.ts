@@ -1,48 +1,7 @@
-// Mock data voor SharePoint Lists structuur
+import type { Project, WerfItem } from "../domain/models.ts";
 
-export interface Project {
-  projectId: string;
-  projectName: string;
-}
-
-export interface WerfItem {
-  itemId: string;
-  projectId: string;
-  datum: Date;
-  latitude: number;
-  longitude: number;
-  hoofdcategorie: string;
-  subcategorie: string;
-  status: "uit te voeren" | "in uitvoering" | "voltooid";
-  adresLocatie: string;
-  titel: string;
-  contactpersoon: string;
-  contactgegevens: string;
-  opmerking: string;
-  deadline: Date;
-  prioriteit: 1 | 2 | 3 | 4 | 5;
-  attachments: string[];
-}
-
-export const HOOFDCATEGORIEEN = [
-  "Riolering",
-  "Bovenbouw",
-  "Groen",
-  "Nutsvoorzieningen",
-  "Privatief",
-  "Andere",
-] as const;
-
-export const SUBCATEGORIEEN: Record<string, string[]> = {
-  Riolering: ["Riolering straat", "Huisaansluiting", "Straatkolken", "Toezichtput", "Andere"],
-  Bovenbouw: ["Rijbaan", "Voetpad", "Fietspad", "Parkeerstrook", "Andere"],
-  Groen: [],
-  Nutsvoorzieningen: ["Fluvius", "Andere"],
-  Privatief: ["Bewoner", "Handelaar"],
-  Andere: [],
-};
-
-export const mockProjects: Project[] = [
+// Original demo records; the project owner confirms these records are fictional.
+export const seedProjects: Project[] = [
   { projectId: "1", projectName: "Heraanleg Kerkstraat - Fase 1" },
   { projectId: "2", projectName: "Rioleringssanering Stationsplein" },
   { projectId: "3", projectName: "Vernieuwing N8 - Zone Zuid" },
@@ -50,7 +9,7 @@ export const mockProjects: Project[] = [
   { projectId: "5", projectName: "Industrieterrein Oost - Infrastructuur" },
 ];
 
-export const mockWerfItems: WerfItem[] = [
+export const seedWerfItems: WerfItem[] = [
   {
     itemId: "1",
     projectId: "1",
@@ -143,27 +102,3 @@ export const mockWerfItems: WerfItem[] = [
   },
 ];
 
-// Helper functions
-export function getProjectById(projectId: string): Project | undefined {
-  return mockProjects.find((p) => p.projectId === projectId);
-}
-
-export function getItemsByProjectId(projectId: string): WerfItem[] {
-  return mockWerfItems.filter((item) => item.projectId === projectId);
-}
-
-export function getOpenItemsCount(projectId: string): number {
-  return mockWerfItems.filter(
-    (item) => item.projectId === projectId && item.status !== "voltooid"
-  ).length;
-}
-
-export function getOverdueItemsCount(projectId: string): number {
-  const now = new Date();
-  return mockWerfItems.filter(
-    (item) =>
-      item.projectId === projectId &&
-      item.status !== "voltooid" &&
-      item.deadline < now
-  ).length;
-}

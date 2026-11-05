@@ -4,24 +4,14 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { mockProjects, getOpenItemsCount, getOverdueItemsCount } from "../data/mockData";
+import { useProjects } from "../hooks/useWerfViews";
 import { useState } from "react";
 
 export function ProjectsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showActiveOnly, setShowActiveOnly] = useState(false);
 
-  const filteredProjects = mockProjects.filter((project) => {
-    const matchesSearch = project.projectName
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const hasOpenItems = getOpenItemsCount(project.projectId) > 0;
-    
-    if (showActiveOnly) {
-      return matchesSearch && hasOpenItems;
-    }
-    return matchesSearch;
-  });
+  const filteredProjects = useProjects(searchQuery, showActiveOnly);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -72,8 +62,8 @@ export function ProjectsScreen() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredProjects.map((project) => {
-                const openItems = getOpenItemsCount(project.projectId);
-                const overdueItems = getOverdueItemsCount(project.projectId);
+                const openItems = project.open;
+                const overdueItems = project.overdue;
 
                 return (
                   <Link key={project.projectId} to={`/project/${project.projectId}`}>

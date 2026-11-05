@@ -20,12 +20,12 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
-import { Card } from "../components/ui/card";
-import { ScrollArea } from "../components/ui/scroll-area";
-import { mockWerfItems, mockProjects, HOOFDCATEGORIEEN } from "../data/mockData";
+import { HOOFDCATEGORIEEN } from "../../domain/categories.ts";
+import { isItemOverdue } from "../../domain/itemRules.ts";
+import { useBackoffice } from "../hooks/useWerfViews";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BackofficeReport } from "../components/BackofficeReport";
 
 export function BackofficeScreen() {
   const [activeTab, setActiveTab] = useState("lijst");
@@ -34,45 +34,10 @@ export function BackofficeScreen() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
-  // Filter items
-  const filteredItems = mockWerfItems.filter((item) => {
-    const matchesSearch =
-      item.titel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.opmerking.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      categoryFilter === "all" || item.hoofdcategorie === categoryFilter;
-    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-
-    return matchesSearch && matchesCategory && matchesStatus;
+  const { items, projects, filteredItems, report } = useBackoffice({
+    search: searchQuery, category: categoryFilter, status: statusFilter,
   });
-
-  // Calculate statistics
-  const totalItems = mockWerfItems.length;
-  const openItems = mockWerfItems.filter((i) => i.status !== "voltooid").length;
-  const overdueItems = mockWerfItems.filter(
-    (i) => i.status !== "voltooid" && i.deadline < new Date()
-  ).length;
-  const completedItems = mockWerfItems.filter((i) => i.status === "voltooid").length;
-
-  // Data for charts
-  const statusData = [
-    { name: "Uit te voeren", value: mockWerfItems.filter((i) => i.status === "uit te voeren").length, color: "#3b82f6" },
-    { name: "In uitvoering", value: mockWerfItems.filter((i) => i.status === "in uitvoering").length, color: "#f59e0b" },
-    { name: "Voltooid", value: mockWerfItems.filter((i) => i.status === "voltooid").length, color: "#10b981" },
-  ];
-
-  const categoryData = HOOFDCATEGORIEEN.map((cat) => ({
-    name: cat,
-    items: mockWerfItems.filter((i) => i.hoofdcategorie === cat).length,
-  }));
-
-  const priorityData = [
-    { name: "Prioriteit 1", value: mockWerfItems.filter((i) => i.prioriteit === 1).length },
-    { name: "Prioriteit 2", value: mockWerfItems.filter((i) => i.prioriteit === 2).length },
-    { name: "Prioriteit 3", value: mockWerfItems.filter((i) => i.prioriteit === 3).length },
-    { name: "Prioriteit 4", value: mockWerfItems.filter((i) => i.prioriteit === 4).length },
-    { name: "Prioriteit 5", value: mockWerfItems.filter((i) => i.prioriteit === 5).length },
-  ];
+  const { total: totalItems, open: openItems, overdue: overdueItems, completed: completedItems } = report.summary;
 
   // Status badge variant
   const getStatusVariant = (status: string) => {
@@ -248,8 +213,8 @@ export function BackofficeScreen() {
                         ) : (
                           filteredItems.map((item) => {
                             const isOverdue =
-                              item.status !== "voltooid" && item.deadline < new Date();
-                            const project = mockProjects.find(
+                              isItemOverdue(item);
+                            const project = projects.find(
                               (p) => p.projectId === item.projectId
                             );
 
@@ -318,7 +283,7 @@ export function BackofficeScreen() {
                 {selectedItem && (
                   <div className="border-t border-gray-200 bg-white p-6">
                     {(() => {
-                      const item = mockWerfItems.find((i) => i.itemId === selectedItem);
+                      const item = items.find((i) => i.itemId === selectedItem);
                       if (!item) return null;
 
                       return (
@@ -359,221 +324,7 @@ export function BackofficeScreen() {
 
           {/* Rapportering Tab */}
           <TabsContent value="rapportering" className="flex-1 mt-0 overflow-auto">
-            <ScrollArea className="h-full">
-              <div className="p-6 space-y-6 max-w-7xl mx-auto">
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-600">Totaal items</h3>
-                      <div className="bg-blue-100 p-2 rounded-lg">
-                        <CheckCircle2 className="size-5 text-blue-600" />
-                      </div>
-                    </div>
-                    <p className="text-3xl font-bold">{totalItems}</p>
-                  </Card>
-
-                  <Card className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-600">Open items</h3>
-                      <div className="bg-blue-100 p-2 rounded-lg">
-                        <CheckCircle2 className="size-5 text-blue-600" />
-                      </div>
-                    </div>
-                    <p className="text-3xl font-bold text-blue-600">{openItems}</p>
-                  </Card>
-
-                  <Card className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-600">Te laat</h3>
-                      <div className="bg-red-100 p-2 rounded-lg">
-                        <CheckCircle2 className="size-5 text-red-600" />
-                      </div>
-                    </div>
-                    <p className="text-3xl font-bold text-red-600">{overdueItems}</p>
-                  </Card>
-
-                  <Card className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-600">Voltooid</h3>
-                      <div className="bg-green-100 p-2 rounded-lg">
-                        <CheckCircle2 className="size-5 text-green-600" />
-                      </div>
-                    </div>
-                    <p className="text-3xl font-bold text-green-600">{completedItems}</p>
-                  </Card>
-                </div>
-
-                {/* Charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card className="p-6">
-                    <h3 className="font-semibold text-lg mb-4">Status verdeling</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={statusData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          label
-                        >
-                          {statusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </Card>
-
-                  <Card className="p-6">
-                    <h3 className="font-semibold text-lg mb-4">Items per categorie</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={categoryData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="items" fill="#3b82f6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </Card>
-
-                  <Card className="p-6">
-                    <h3 className="font-semibold text-lg mb-4">Prioriteit verdeling</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={priorityData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#f59e0b" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </Card>
-
-                  <Card className="p-6">
-                    <h3 className="font-semibold text-lg mb-4">Project overzicht</h3>
-                    <div className="space-y-3">
-                      {mockProjects.map((project) => {
-                        const projectItems = mockWerfItems.filter(
-                          (i) => i.projectId === project.projectId
-                        );
-                        const projectOpen = projectItems.filter(
-                          (i) => i.status !== "voltooid"
-                        ).length;
-                        const projectCompleted = projectItems.filter(
-                          (i) => i.status === "voltooid"
-                        ).length;
-
-                        return (
-                          <div
-                            key={project.projectId}
-                            className="p-3 bg-gray-50 rounded-lg"
-                          >
-                            <p className="font-medium mb-2">{project.projectName}</p>
-                            <div className="flex gap-4 text-sm">
-                              <span className="text-blue-600">
-                                {projectOpen} open
-                              </span>
-                              <span className="text-green-600">
-                                {projectCompleted} voltooid
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </Card>
-                </div>
-
-                {/* Kanban-style view */}
-                <Card className="p-6">
-                  <h3 className="font-semibold text-lg mb-4">Rapport per status</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Uit te voeren */}
-                    <div>
-                      <div className="bg-gray-100 p-3 rounded-lg mb-3">
-                        <h4 className="font-semibold">Uit te voeren</h4>
-                        <p className="text-sm text-gray-600">
-                          {mockWerfItems.filter((i) => i.status === "uit te voeren").length}{" "}
-                          items
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        {mockWerfItems
-                          .filter((i) => i.status === "uit te voeren")
-                          .slice(0, 5)
-                          .map((item) => (
-                            <Card key={item.itemId} className="p-3">
-                              <p className="text-sm font-medium line-clamp-2">
-                                {item.titel}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {item.hoofdcategorie}
-                              </p>
-                            </Card>
-                          ))}
-                      </div>
-                    </div>
-
-                    {/* In uitvoering */}
-                    <div>
-                      <div className="bg-blue-100 p-3 rounded-lg mb-3">
-                        <h4 className="font-semibold">In uitvoering</h4>
-                        <p className="text-sm text-gray-600">
-                          {mockWerfItems.filter((i) => i.status === "in uitvoering").length}{" "}
-                          items
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        {mockWerfItems
-                          .filter((i) => i.status === "in uitvoering")
-                          .slice(0, 5)
-                          .map((item) => (
-                            <Card key={item.itemId} className="p-3">
-                              <p className="text-sm font-medium line-clamp-2">
-                                {item.titel}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {item.hoofdcategorie}
-                              </p>
-                            </Card>
-                          ))}
-                      </div>
-                    </div>
-
-                    {/* Voltooid */}
-                    <div>
-                      <div className="bg-green-100 p-3 rounded-lg mb-3">
-                        <h4 className="font-semibold">Voltooid</h4>
-                        <p className="text-sm text-gray-600">
-                          {mockWerfItems.filter((i) => i.status === "voltooid").length} items
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        {mockWerfItems
-                          .filter((i) => i.status === "voltooid")
-                          .slice(0, 5)
-                          .map((item) => (
-                            <Card key={item.itemId} className="p-3">
-                              <p className="text-sm font-medium line-clamp-2">
-                                {item.titel}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {item.hoofdcategorie}
-                              </p>
-                            </Card>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            </ScrollArea>
+            <BackofficeReport report={report} />
           </TabsContent>
         </Tabs>
       </div>
